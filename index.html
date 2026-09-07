@@ -123,7 +123,8 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:var(--ink)}
 .cls{font-size:13.5px;font-weight:750;letter-spacing:.01em;line-height:1.2}
 .ttl{font-size:15px;font-weight:550;line-height:1.3;margin-top:1px;color:var(--ink);white-space:normal;overflow-wrap:anywhere}
 .cell .meta{display:flex;gap:5px;margin-top:4px;align-items:center;flex-wrap:wrap}
-.tag{font-size:12px;font-weight:700;padding:1px 7px;border-radius:5px;white-space:nowrap}
+.tag{font-size:12px;font-weight:700;padding:1px 7px;border-radius:5px;white-space:nowrap;display:inline-flex;align-items:center;gap:3px;vertical-align:middle}
+.tag svg{flex:0 0 auto}
 .tag.req{background:var(--req-soft);color:var(--req)}
 .tag.sent{background:var(--sent-soft);color:var(--sent)}
 .tag.done{background:var(--done-soft);color:var(--done)}
@@ -206,7 +207,11 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:var(--ink)}
 .qstat .printcyc{white-space:nowrap;height:100%}
 .planrow .qopts{display:flex;gap:14px;align-items:center;margin-top:8px;font-size:13px;color:var(--muted);flex-wrap:wrap}
 .cyc{border:1px solid var(--line-strong);background:var(--surface);border-radius:7px;padding:5px 11px;font-weight:650;font-size:13.5px;cursor:pointer}
-.printcyc{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line-strong);background:var(--surface-2);border-radius:8px;padding:9px 13px;font-weight:650;font-size:14px;cursor:pointer;color:var(--ink)}
+.printcyc{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line-strong);background:var(--surface-2);border-radius:8px;padding:9px 13px;font-weight:700;font-size:14px;cursor:pointer;color:var(--faint)}
+.printcyc svg{flex:0 0 auto}
+.printcyc.req{color:var(--req);border-color:var(--req-soft)}
+.printcyc.sent{color:var(--sent);border-color:var(--sent-soft)}
+.printcyc.done{color:var(--done);border-color:var(--done-soft)}
 .printcyc:hover{border-color:var(--accent)}
 .printcyc .pl{color:var(--muted)}
 .printcyc .st{font-weight:800}
@@ -377,7 +382,7 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:var(--ink)}
 <script>
 "use strict";
 const SEP="\u241f";
-const APP_VERSION="v15";
+const APP_VERSION="v16";
 const APP_UPDATED="7 Sep 2026";
 const LS_STATE="fortnight.state.v2";
 const LS_LAYOUT="fortnight.layout.v1";
@@ -596,7 +601,10 @@ function checklistHTML(){
 function editToggle(){
   return `<button class="iconbtn ${S.ui.editLayout?"on":""}" id="editlayout">${S.ui.editLayout?"Done":"Adjust layout"}</button>${S.ui.editLayout?`<button class="iconbtn" id="resetlayout">Reset</button>`:""}`;
 }
-function printTag(status){ if(!status)return ""; return `<span class="tag ${PRINT_CLS[status]}">${PRINT_LABEL[status]}</span>`; }
+function printIcon(){return '<svg class="pico" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V4h12v5"/><path d="M6 18H4a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-2"/><rect x="7" y="15" width="10" height="6" rx="1"/></svg>';}
+function printTag(status){ if(!status)return ""; return `<span class="tag ${PRINT_CLS[status]}">${printIcon()} ${PRINT_LABEL[status]}</span>`; }
+function printCtlInner(status){ return status?`${printIcon()} ${PRINT_LABEL[status]}`:`Printing`; }
+function printCtl(date,slotId,status){ return `<button type="button" class="printcyc ${status?PRINT_CLS[status]:""}" data-cycprint data-key="${date}|${slotId}">${printCtlInner(status)}</button>`; }
 function hwTag(on){ return on?`<span class="tag hw">✎ HW</span>`:""; }
 
 /* ---------- WEEK ---------- */
@@ -839,7 +847,7 @@ function planRow(o,isNext,past){
       <textarea class="qtitle" rows="1" placeholder="Lesson topic…" data-f="title">${esc(L.title||"")}</textarea>
       ${(e&&e.hw)?'<span class="hwmark" title="Homework set this day">✎ HW</span>':""}
       <textarea class="qhw" rows="1" placeholder="Homework…" data-f="homework">${esc(L.homework||"")}</textarea>
-      <div class="qstat"><button type="button" class="printcyc" data-cycprint><span class="pl">Printing:</span> <span class="st" style="color:${pcol}">${PRINT_LABEL[L.printing||""]}</span></button></div>
+      <div class="qstat">${printCtl(o.date,o.slot.id,L.printing)}</div>
     </div>`:`<textarea class="qtitle" rows="1" placeholder="Note…" data-f="title">${esc(L.title||"")}</textarea>`}</div>${o.hol?`<div class="rowwater"><span>${esc(o.hol)}</span></div>`:""}</div>`;
 }
 
@@ -858,7 +866,7 @@ function viewPrint(){
       <div class="printrow" style="border-left:3px solid ${it.cl?it.cl.color:"var(--line)"}">
         <div class="pj tnum">${it.d.toLocaleDateString(undefined,{weekday:"short"})} ${it.sl.start}<br><span class="mini">${it.cl?esc(it.cl.name):""}</span></div>
         <div><div class="ttl">${esc(it.L.title||"(untitled lesson)")}</div>${it.L.homework?`<div class="note" style="margin-top:3px">${esc(it.L.homework)}</div>`:""}</div>
-        <div>${printTag(it.L.printing)}</div>
+        <div>${printCtl(it.s,it.sl.id,it.L.printing)}</div>
       </div>`).join(""); }
   });
   if(!html)html=`<div class="offday" style="padding:20px">Nothing outstanding to print across these two weeks. Set a lesson's printing to “Required” and it appears here until you mark it “Collected”.</div>`;
@@ -1080,11 +1088,11 @@ function wire(){
   app.querySelectorAll(".planrow").forEach(row=>{const [date,sid]=row.dataset.key.split("|");
     row.querySelectorAll("[data-f]").forEach(inp=>{const ev=inp.tagName==="SELECT"?"change":"input";
       const grow=inp.classList.contains("qtitle")||inp.classList.contains("qhw"); if(grow)autoGrow(inp);
-      inp.addEventListener(ev,()=>{const Lx=Object.assign({},getLesson(date,sid)||{});Lx[inp.dataset.f]=inp.value;setLesson(date,sid,Lx);if(grow)autoGrow(inp);});});
-    const pc=row.querySelector("[data-cycprint]");
-    if(pc)pc.addEventListener("click",()=>{const Lx=Object.assign({},getLesson(date,sid)||{});
+      inp.addEventListener(ev,()=>{const Lx=Object.assign({},getLesson(date,sid)||{});Lx[inp.dataset.f]=inp.value;setLesson(date,sid,Lx);if(grow)autoGrow(inp);});});});
+  app.querySelectorAll("[data-cycprint]").forEach(pc=>{const key=pc.dataset.key||(pc.closest("[data-key]")&&pc.closest("[data-key]").dataset.key);if(!key)return;const [date,sid]=key.split("|");
+    pc.addEventListener("click",()=>{const Lx=Object.assign({},getLesson(date,sid)||{});
       Lx.printing=PRINT_ORDER[(PRINT_ORDER.indexOf(Lx.printing||"")+1)%PRINT_ORDER.length]; setLesson(date,sid,Lx);
-      const st=pc.querySelector(".st"); st.textContent=PRINT_LABEL[Lx.printing||""]; st.style.color=Lx.printing?`var(--${PRINT_CLS[Lx.printing]})`:"var(--faint)";});});
+      pc.className="printcyc"+(Lx.printing?" "+PRINT_CLS[Lx.printing]:""); pc.innerHTML=printCtlInner(Lx.printing);});});
   if(S.ui.view==="class"&&wantClassScroll){wantClassScroll=false;const nx=app.querySelector(".planrow.next")||app.querySelector(".planrow"); if(nx&&nx.scrollIntoView)setTimeout(()=>{try{nx.scrollIntoView({block:"start",behavior:"auto"});}catch(e){}},30);}
 
   // day note + resizers
