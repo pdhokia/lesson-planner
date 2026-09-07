@@ -377,7 +377,7 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:var(--ink)}
 <script>
 "use strict";
 const SEP="\u241f";
-const APP_VERSION="v14";
+const APP_VERSION="v15";
 const APP_UPDATED="7 Sep 2026";
 const LS_STATE="fortnight.state.v2";
 const LS_LAYOUT="fortnight.layout.v1";
@@ -548,7 +548,21 @@ function orderedItems(){
    RENDER
    ========================================================================= */
 const app=document.getElementById("app");
+function captureFocus(){
+  const ae=document.activeElement; if(!ae||(ae.tagName!=="TEXTAREA"&&ae.tagName!=="INPUT"))return null;
+  const info={start:ae.selectionStart,end:ae.selectionEnd};
+  if(ae.id)info.id=ae.id;
+  else{const row=ae.closest("[data-key]"); if(row&&ae.dataset&&ae.dataset.f){info.key=row.dataset.key;info.f=ae.dataset.f;}}
+  return (info.id||info.key)?info:null;
+}
+function restoreFocus(info){
+  if(!info)return; let el=null;
+  if(info.id)el=document.getElementById(info.id);
+  else if(info.key)el=app.querySelector('[data-key="'+info.key+'"] [data-f="'+info.f+'"]');
+  if(el){try{el.focus({preventScroll:true});}catch(e){el.focus();} try{if(info.start!=null)el.setSelectionRange(info.start,info.end);}catch(e){}}
+}
 function render(){
+  const _foc=captureFocus();
   document.querySelectorAll("#viewseg button").forEach(b=>b.classList.toggle("on",b.dataset.v===S.ui.view));
   document.body.classList.toggle("editmode",!!S.ui.editLayout);
   app.classList.toggle("fitview",S.ui.view==="class"||S.ui.view==="day"||(S.ui.view==="week"&&isMobile()));
@@ -560,6 +574,7 @@ function render(){
   else app.innerHTML=viewSettings();
   wire();
   applyFont();
+  restoreFocus(_foc);
 }
 
 function setupState(){
@@ -1290,12 +1305,15 @@ function scheduleSync(){if(!SYNC.enabled)return;clearTimeout(syncTimer);syncTime
 async function doSync(silent){
   if(!SYNC.enabled||!SYNC.token||!SYNC.owner||!SYNC.repo)return;
   if(syncing){pendingSync=true;return;} syncing=true;setSyncStatus("busy","Syncing…");
-  try{const remote=await ghGet();let merged=remote.payload?mergeStates(payload(),remote.payload):payload();
+  try{
+    const cmp=o=>JSON.stringify({s:o.settings,l:o.lessons,n:o.dayNotes,c:o.classNotes,su:(o.meta&&o.meta.settingsUpdatedAt)||0});
+    const beforeStr=cmp(payload());
+    const remote=await ghGet();let merged=remote.payload?mergeStates(payload(),remote.payload):payload();
+    const incoming=beforeStr!==cmp(merged);
     S.settings=merged.settings;S.lessons=merged.lessons;S.dayNotes=merged.dayNotes;S.classNotes=merged.classNotes||{};S.meta=merged.meta;clearWkCache();save();
-    const cmp=o=>JSON.stringify({s:o.settings,l:o.lessons,n:o.dayNotes,su:(o.meta&&o.meta.settingsUpdatedAt)||0});
     if(!remote.payload||cmp(remote.payload)!==cmp(merged)){SYNC.sha=await ghPut(JSON.stringify(merged),remote.sha);saveSync();}
     else{SYNC.sha=remote.sha;saveSync();}
-    setSyncStatus("ok","Synced"); if(!silent)render();
+    setSyncStatus("ok","Synced"); if(!silent&&incoming)render();
   }catch(e){setSyncStatus("err","Sync error");console.warn(e);const m=document.getElementById("syncmsg");if(m)m.textContent=String(e.message||e);}
   syncing=false; if(pendingSync){pendingSync=false;scheduleSync();}
 }
